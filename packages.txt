@@ -1,7 +1,0 @@
-# Este archivo es para Streamlit Cloud
-# Lista los paquetes que necesitas instalar
-
-pymupdf==1.25.3
-chromadb>=0.4.0
-openai>=1.30.0
-streamlit>=1.38.0
