@@ -13,12 +13,14 @@ import sys
 from pathlib import Path
 
 import streamlit as st
-import chromadb
+import pickle
+import numpy as np
+from scipy.spatial.distance import cdist
 from openai import OpenAI
 
 # ── Configuration ──────────────────────────────────────────────────
-DB_DIR = Path("./chromadb_data")
-COLLECTION_NAME = "interview_chunks"
+DB_DIR = Path("./vector_db")
+DB_FILE = DB_DIR / "embeddings.pkl"
 EMBEDDING_MODEL = "text-embedding-3-small"
 CHAT_MODEL = "gpt-4o-mini"  # cost-effective for RAG; swap to gpt-4o if needed
 TOP_K = 8  # number of chunks to retrieve
@@ -35,26 +37,23 @@ st.set_page_config(
 
 @st.cache_resource
 def init_clients():
-    """Initialize OpenAI client and ChromaDB connection."""
+    """Initialize OpenAI client and load vector database."""
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         st.error("❌ Set OPENAI_API_KEY environment variable")
         st.stop()
 
-    if not DB_DIR.exists():
+    if not DB_FILE.exists():
         st.error("❌ Database not found. Run `python ingest.py` first.")
         st.stop()
 
     client = OpenAI(api_key=api_key)
-    chroma_client = chromadb.PersistentClient(path=str(DB_DIR))
+    
+    # Load database
+    with open(DB_FILE, "rb") as f:
+        database = pickle.load(f)
 
-    try:
-        collection = chroma_client.get_collection(COLLECTION_NAME)
-    except Exception:
-        st.error(f"❌ Collection '{COLLECTION_NAME}' not found. Run `python ingest.py` first.")
-        st.stop()
-
-    return client, collection
+    return client, database
 
 
 def get_query_embedding(client: OpenAI, query: str) -> list[float]:
@@ -66,47 +65,48 @@ def get_query_embedding(client: OpenAI, query: str) -> list[float]:
     return response.data[0].embedding
 
 
-def search_chunks(collection, query_vector: list[float], vendor_filter: list[str] | None = None,
+def search_chunks(database, query_vector: list[float], vendor_filter: list[str] | None = None,
                   source_filter: list[str] | None = None, top_k: int = TOP_K) -> list[dict]:
-    """Search ChromaDB for relevant chunks with optional filters."""
-    # Build where clause for filters
-    where_clause = {}
-    if vendor_filter and len(vendor_filter) < len(VENDORS):
-        where_clause["vendor"] = {"$in": vendor_filter}
-    if source_filter and len(source_filter) < 2:
-        where_clause["source_type"] = {"$in": source_filter}
+    """Search vector database for relevant chunks with optional filters."""
+    embeddings = database["embeddings"]
+    chunks_data = database["chunks"]
     
-    # Query ChromaDB
-    # Over-fetch if we have filters to apply
+    # Convert query to numpy array
+    query_vec = np.array([query_vector], dtype=np.float32)
+    
+    # Calculate cosine similarity (1 - cosine distance)
+    # Use dot product for efficiency (normalized vectors)
+    similarities = np.dot(embeddings, query_vec.T).flatten()
+    
+    # Get top indices
     query_k = top_k * 3 if (vendor_filter or source_filter) else top_k
+    top_indices = np.argsort(similarities)[::-1][:query_k]
     
-    results = collection.query(
-        query_embeddings=[query_vector],
-        n_results=query_k,
-        where=where_clause if where_clause else None,
-    )
+    # Get chunks and apply filters
+    results = []
+    for idx in top_indices:
+        chunk = {
+            "text": chunks_data[idx]["text"],
+            "vendor": chunks_data[idx]["vendor"],
+            "source_type": chunks_data[idx]["source_type"],
+            "filename": chunks_data[idx]["filename"],
+            "chunk_index": chunks_data[idx]["chunk_index"],
+            "similarity": float(similarities[idx]),
+        }
+        
+        # Apply filters
+        if vendor_filter and len(vendor_filter) < len(VENDORS):
+            if chunk["vendor"] not in vendor_filter:
+                continue
+        if source_filter and len(source_filter) < 2:
+            if chunk["source_type"] not in source_filter:
+                continue
+        
+        results.append(chunk)
     
-    # Convert ChromaDB results to our format
-    chunks = []
-    if results["ids"] and len(results["ids"][0]) > 0:
-        for i in range(len(results["ids"][0])):
-            chunk = {
-                "text": results["documents"][0][i],
-                "vendor": results["metadatas"][0][i]["vendor"],
-                "source_type": results["metadatas"][0][i]["source_type"],
-                "filename": results["metadatas"][0][i]["filename"],
-                "chunk_index": results["metadatas"][0][i]["chunk_index"],
-            }
-            chunks.append(chunk)
-    
-    # Apply additional filtering if needed (in case where clause didn't work perfectly)
-    if vendor_filter and len(vendor_filter) < len(VENDORS):
-        chunks = [c for c in chunks if c["vendor"] in vendor_filter]
-    if source_filter and len(source_filter) < 2:
-        chunks = [c for c in chunks if c["source_type"] in source_filter]
-    
-    # Take top_k
-    return chunks[:top_k]
+    # Sort by similarity and take top_k
+    results.sort(key=lambda x: x["similarity"], reverse=True)
+    return results[:top_k]
 
 
 def build_context(chunks: list[dict]) -> str:
@@ -172,7 +172,7 @@ Question: {query}"""
 
 
 def main():
-    client, collection = init_clients()
+    client, database = init_clients()
 
     # ── Header ─────────────────────────────────────────────────────
     st.title("🔍 CI Interview Analysis")
@@ -253,7 +253,7 @@ def main():
 
                 # Search with filters
                 chunks = search_chunks(
-                    collection,
+                    database,
                     query_vector,
                     vendor_filter=vendor_filter if vendor_filter else None,
                     source_filter=source_filter if source_filter else None,

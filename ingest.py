@@ -1,7 +1,7 @@
 """
 ingest.py — PDF ingestion pipeline for competitive intelligence RAG
 Extracts text from PDFs in /pdfs, chunks them, generates embeddings,
-and stores everything in a local ChromaDB vector database.
+and stores everything in pickle files for vector search.
 
 Usage:
     python ingest.py
@@ -14,16 +14,17 @@ import re
 import sys
 import json
 import time
+import pickle
 from pathlib import Path
 
 import fitz  # PyMuPDF
-import chromadb
+import numpy as np
 from openai import OpenAI
 
 # ── Configuration ──────────────────────────────────────────────────
 PDF_DIR = Path("./pdfs")
-DB_DIR = Path("./chromadb_data")
-COLLECTION_NAME = "interview_chunks"
+DB_DIR = Path("./vector_db")
+DB_FILE = DB_DIR / "embeddings.pkl"
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIM = 1536
 CHUNK_SIZE = 800       # tokens ~= words * 1.3, so ~600 words per chunk
@@ -135,8 +136,8 @@ def main():
     print(f"🗄️  Database will be stored in {DB_DIR}")
     print()
     
-    # Initialize ChromaDB
-    chroma_client = chromadb.PersistentClient(path=str(DB_DIR))
+    # Create database directory
+    DB_DIR.mkdir(exist_ok=True)
 
     client = OpenAI(api_key=api_key)
 
@@ -188,70 +189,20 @@ def main():
         if batch_end < len(texts_to_embed):
             time.sleep(0.5)
 
-    # ── Store in ChromaDB ───────────────────────────────────────────
-    print(f"\n💾 Storing in ChromaDB ({DB_DIR})...")
+    # ── Store embeddings and metadata ────────────────────────────────
+    print(f"\n💾 Storing embeddings in {DB_FILE}...")
 
-    # Get or create collection
-    try:
-        collection = chroma_client.get_collection(COLLECTION_NAME)
-        print(f"   Found existing collection '{COLLECTION_NAME}', deleting...")
-        chroma_client.delete_collection(COLLECTION_NAME)
-    except Exception:
-        pass
-
-    collection = chroma_client.create_collection(
-        name=COLLECTION_NAME,
-        metadata={"description": "Competitive intelligence interview chunks"}
-    )
-    print(f"   Created collection '{COLLECTION_NAME}'")
-
-    # Prepare data for ChromaDB (it stores embeddings separately)
-    # ChromaDB expects: ids, documents, metadatas, embeddings
-    DB_BATCH_SIZE = 100  # ChromaDB handles batches well
-    total_batches = (len(all_records) + DB_BATCH_SIZE - 1) // DB_BATCH_SIZE
+    # Prepare data structure
+    database = {
+        "embeddings": np.array(all_vectors, dtype=np.float32),
+        "chunks": all_records,
+    }
     
-    for batch_idx in range(total_batches):
-        batch_start = batch_idx * DB_BATCH_SIZE
-        batch_end = min(batch_start + DB_BATCH_SIZE, len(all_records))
-        
-        # Prepare batch data
-        batch_ids = []
-        batch_documents = []
-        batch_metadatas = []
-        batch_embeddings = []
-        
-        for i in range(batch_start, batch_end):
-            # Create unique ID
-            batch_ids.append(f"{all_records[i]['filename']}_chunk_{all_records[i]['chunk_index']}")
-            batch_documents.append(all_records[i]["text"])
-            batch_metadatas.append({
-                "vendor": all_records[i]["vendor"],
-                "source_type": all_records[i]["source_type"],
-                "filename": all_records[i]["filename"],
-                "chunk_index": all_records[i]["chunk_index"],
-            })
-            batch_embeddings.append(all_vectors[i])
-        
-        # Add batch to collection
-        try:
-            collection.add(
-                ids=batch_ids,
-                documents=batch_documents,
-                metadatas=batch_metadatas,
-                embeddings=batch_embeddings
-            )
-            if (batch_idx + 1) % 10 == 0 or batch_idx == total_batches - 1:
-                print(f"   ✓ Added batch {batch_idx + 1}/{total_batches} ({len(batch_ids)} rows)")
-        except Exception as e:
-            print(f"   ❌ Error adding batch {batch_idx + 1}: {e}")
-            raise
+    # Save to pickle file
+    with open(DB_FILE, "wb") as f:
+        pickle.dump(database, f)
     
-    # Verify collection
-    try:
-        count = collection.count()
-        print(f"   ✅ Total rows in collection: {count}")
-    except Exception as e:
-        print(f"   ⚠️  Could not verify row count: {e}")
+    print(f"   ✅ Saved {len(all_records)} chunks with embeddings")
 
     # ── Summary ────────────────────────────────────────────────────
     print("\n✅ Ingestion complete!")

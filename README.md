@@ -71,7 +71,7 @@ Este script:
 - Extrae texto de todos los PDFs en `pdfs/`
 - Divide el texto en chunks
 - Genera embeddings usando OpenAI
-- Almacena todo en `chromadb_data/`
+- Almacena todo en `vector_db/`
 
 ### Paso 5: Ejecutar la aplicación
 
@@ -110,7 +110,7 @@ RAG_Interviews/
 ├── ingest.py           # Script de ingesta de PDFs
 ├── requirements.txt    # Dependencias Python
 ├── pdfs/               # Carpeta con PDFs de entrevistas (crear manualmente)
-└── chromadb_data/      # Base de datos vectorial (se crea automáticamente)
+└── vector_db/          # Base de datos vectorial (se crea automáticamente)
 ```
 
 ## 🌐 Compartir la Aplicación

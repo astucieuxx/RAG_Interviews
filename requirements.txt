@@ -1,6 +1,5 @@
 streamlit>=1.38.0
 openai>=1.30.0
-chromadb==0.5.20
 pymupdf==1.25.3
 numpy>=1.24.0
-pandas>=2.0.0
+scipy>=1.10.0
