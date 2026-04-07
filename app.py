@@ -10,12 +10,13 @@ Run ingest.py first to populate the vector database.
 
 import os
 import sys
+import re
+from collections import defaultdict
 from pathlib import Path
 
 import streamlit as st
 import pickle
 import numpy as np
-from scipy.spatial.distance import cdist
 from openai import OpenAI
 
 # ── Configuration ──────────────────────────────────────────────────
@@ -39,7 +40,7 @@ def normalize_source_type(source_type: str) -> str:
 
 # ── Page config ────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="RAG AI Competitors Interview Analysis",
+    page_title="RAG AI Agents Competitors Analysis",
     page_icon="🔍",
     layout="wide",
 )
@@ -73,6 +74,88 @@ def get_query_embedding(client: OpenAI, query: str) -> list[float]:
         input=query,
     )
     return response.data[0].embedding
+
+
+def is_count_interviews_query(query: str) -> bool:
+    """Detect questions asking for total interview counts."""
+    q = query.lower()
+    patterns = [
+        r"\bhow many interviews\b",
+        r"\bnumber of interviews\b",
+        r"\btotal interviews\b",
+        r"\bcu[aá]ntas entrevistas\b",
+        r"\bcu[aá]ntos interviews\b",
+        r"\btotal de entrevistas\b",
+    ]
+    return any(re.search(p, q) for p in patterns)
+
+
+def count_interviews(database, vendor_filter: list[str] | None = None,
+                     source_filter: list[str] | None = None) -> tuple[int, dict]:
+    """Count unique interview files in database after applying filters."""
+    valid_vendors = set(vendor_filter) if vendor_filter else set(VENDORS)
+    valid_sources = set(source_filter) if source_filter else set(SOURCE_TYPES)
+
+    per_file = {}
+    for chunk in database["chunks"]:
+        vendor = chunk["vendor"]
+        source_type = normalize_source_type(chunk["source_type"])
+        filename = chunk["filename"]
+        if vendor not in valid_vendors or source_type not in valid_sources:
+            continue
+        # One interview per file
+        per_file[filename] = (vendor, source_type)
+
+    breakdown = {}
+    for vendor, source_type in per_file.values():
+        key = f"{vendor} ({source_type})"
+        breakdown[key] = breakdown.get(key, 0) + 1
+    return len(per_file), dict(sorted(breakdown.items()))
+
+
+def get_database_interview_summary(database) -> tuple[int, list[dict]]:
+    """Return total interviews and per vendor/source interview counts."""
+    interviews = {}
+    for chunk in database["chunks"]:
+        filename = chunk["filename"]
+        interviews[filename] = (
+            chunk["vendor"],
+            normalize_source_type(chunk["source_type"]),
+        )
+
+    summary = defaultdict(lambda: {"ex-customer": 0, "ex-employee": 0})
+    for vendor, source_type in interviews.values():
+        if source_type in SOURCE_TYPES:
+            summary[vendor][source_type] += 1
+
+    rows = []
+    for vendor in VENDORS:
+        rows.append({
+            "company": vendor,
+            "ex-customer": summary[vendor]["ex-customer"],
+            "ex-employee": summary[vendor]["ex-employee"],
+            "total": summary[vendor]["ex-customer"] + summary[vendor]["ex-employee"],
+        })
+    return len(interviews), rows
+
+
+def format_count_response(query: str, total: int, breakdown: dict) -> str:
+    """Format count response in user language (Spanish/English)."""
+    is_spanish = any(token in query.lower() for token in ["cuánt", "cuant", "entrevistas", "cuantos", "cuantas"])
+    if is_spanish:
+        lines = [f"Hay **{total} entrevistas** en los filtros actuales."]
+        if breakdown:
+            lines.append("")
+            lines.append("Desglose:")
+            lines.extend([f"- {k}: {v}" for k, v in breakdown.items()])
+        return "\n".join(lines)
+
+    lines = [f"There are **{total} interviews** with the current filters."]
+    if breakdown:
+        lines.append("")
+        lines.append("Breakdown:")
+        lines.extend([f"- {k}: {v}" for k, v in breakdown.items()])
+    return "\n".join(lines)
 
 
 def search_chunks(database, query_vector: list[float], vendor_filter: list[str] | None = None,
@@ -183,9 +266,10 @@ Question: {query}"""
 
 def main():
     client, database = init_clients()
+    db_total_interviews, db_summary_rows = get_database_interview_summary(database)
 
     # ── Header ─────────────────────────────────────────────────────
-    st.title("RAG AI Competitors Interview Analysis")
+    st.title("RAG AI Agents Competitors Analysis")
     st.caption("RAG-powered analysis of competitive intelligence interviews")
 
     # ── Sidebar: Filters ───────────────────────────────────────────
@@ -214,6 +298,15 @@ def main():
             max_value=20,
             value=TOP_K,
             help="Number of relevant excerpts to include as context",
+        )
+
+        st.divider()
+        st.subheader("Database interviews")
+        st.caption(f"Total interviews indexed: **{db_total_interviews}**")
+        st.dataframe(
+            db_summary_rows,
+            use_container_width=True,
+            hide_index=True,
         )
 
         st.divider()
@@ -258,23 +351,32 @@ def main():
         # Generate response
         with st.chat_message("assistant"):
             with st.spinner("Searching interviews..."):
-                # Embed query
-                query_vector = get_query_embedding(client, prompt)
+                if is_count_interviews_query(prompt):
+                    total, breakdown = count_interviews(
+                        database,
+                        vendor_filter=vendor_filter if vendor_filter else None,
+                        source_filter=source_filter if source_filter else None,
+                    )
+                    response = format_count_response(prompt, total, breakdown)
+                    chunks = []
+                else:
+                    # Embed query
+                    query_vector = get_query_embedding(client, prompt)
 
-                # Search with filters
-                chunks = search_chunks(
-                    database,
-                    query_vector,
-                    vendor_filter=vendor_filter if vendor_filter else None,
-                    source_filter=source_filter if source_filter else None,
-                    top_k=top_k,
-                )
+                    # Search with filters
+                    chunks = search_chunks(
+                        database,
+                        query_vector,
+                        vendor_filter=vendor_filter if vendor_filter else None,
+                        source_filter=source_filter if source_filter else None,
+                        top_k=top_k,
+                    )
 
-                # Build context and get response
-                context = build_context(chunks)
-                response = get_chat_response(
-                    client, prompt, context, st.session_state.chat_history
-                )
+                    # Build context and get response
+                    context = build_context(chunks)
+                    response = get_chat_response(
+                        client, prompt, context, st.session_state.chat_history
+                    )
 
             st.markdown(response)
 
