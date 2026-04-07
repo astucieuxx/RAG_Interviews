@@ -26,10 +26,20 @@ CHAT_MODEL = "gpt-4o-mini"  # cost-effective for RAG; swap to gpt-4o if needed
 TOP_K = 8  # number of chunks to retrieve
 
 VENDORS = ["decagon", "sierra", "intercom", "forethought"]
+SOURCE_TYPES = ["ex-customer", "ex-employee"]
+
+
+def normalize_source_type(source_type: str) -> str:
+    """Normalize legacy Spanish tags to English canonical labels."""
+    mapping = {
+        "ex-cliente": "ex-customer",
+        "ex-empleado": "ex-employee",
+    }
+    return mapping.get(source_type, source_type)
 
 # ── Page config ────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="CI Interview Analysis",
+    page_title="RAG AI Competitors Interview Analysis",
     page_icon="🔍",
     layout="wide",
 )
@@ -88,7 +98,7 @@ def search_chunks(database, query_vector: list[float], vendor_filter: list[str] 
         chunk = {
             "text": chunks_data[idx]["text"],
             "vendor": chunks_data[idx]["vendor"],
-            "source_type": chunks_data[idx]["source_type"],
+            "source_type": normalize_source_type(chunks_data[idx]["source_type"]),
             "filename": chunks_data[idx]["filename"],
             "chunk_index": chunks_data[idx]["chunk_index"],
             "similarity": float(similarities[idx]),
@@ -98,7 +108,7 @@ def search_chunks(database, query_vector: list[float], vendor_filter: list[str] 
         if vendor_filter and len(vendor_filter) < len(VENDORS):
             if chunk["vendor"] not in vendor_filter:
                 continue
-        if source_filter and len(source_filter) < 2:
+        if source_filter and len(source_filter) < len(SOURCE_TYPES):
             if chunk["source_type"] not in source_filter:
                 continue
         
@@ -175,7 +185,7 @@ def main():
     client, database = init_clients()
 
     # ── Header ─────────────────────────────────────────────────────
-    st.title("🔍 CI Interview Analysis")
+    st.title("RAG AI Competitors Interview Analysis")
     st.caption("RAG-powered analysis of competitive intelligence interviews")
 
     # ── Sidebar: Filters ───────────────────────────────────────────
@@ -191,8 +201,8 @@ def main():
 
         source_filter = st.multiselect(
             "Source Type",
-            options=["ex-cliente", "ex-empleado"],
-            default=["ex-cliente", "ex-empleado"],
+            options=SOURCE_TYPES,
+            default=SOURCE_TYPES,
             help="Filter by interview source type",
         )
 

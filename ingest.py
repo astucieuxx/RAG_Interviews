@@ -34,10 +34,10 @@ BATCH_SIZE = 50        # embeddings per API call
 # Known vendors — filenames should contain one of these
 VENDORS = ["decagon", "sierra", "intercom", "forethought"]
 
-# Source types — filenames should contain one of these
+# Source types — canonical labels are in English
 SOURCE_TYPES = {
-    "ex-cliente": ["ex-cliente", "excliente", "customer", "cliente"],
-    "ex-empleado": ["ex-empleado", "exempleado", "employee", "empleado"],
+    "ex-customer": ["ex-customer", "customer", "ex-cliente", "excliente", "cliente"],
+    "ex-employee": ["ex-employee", "employee", "ex-empleado", "exempleado", "empleado"],
 }
 
 
@@ -51,7 +51,7 @@ def detect_vendor(filename: str) -> str:
 
 
 def detect_source_type(filename: str) -> str:
-    """Detect source type (ex-cliente or ex-empleado) from filename."""
+    """Detect source type (ex-customer or ex-employee) from filename."""
     lower = filename.lower()
     for source_type, keywords in SOURCE_TYPES.items():
         for kw in keywords:

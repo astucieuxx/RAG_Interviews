@@ -51,13 +51,13 @@ mkdir pdfs
 
 **Importante:** Los nombres de los archivos deben contener:
 - **Vendor:** `decagon`, `sierra`, `intercom`, o `forethought`
-- **Tipo de fuente:** `ex-cliente` o `ex-empleado` (o sus variantes en inglés)
+- **Source type:** `ex-customer` or `ex-employee` (Spanish variants are still auto-detected)
 
 **Ejemplos de nombres válidos:**
-- `decagon_ex-cliente_entrevista1.pdf`
+- `decagon_ex-customer_interview1.pdf`
 - `sierra_exempleado_juan.pdf`
 - `intercom_customer_interview.pdf`
-- `forethought_ex-cliente_maria.pdf`
+- `forethought_ex-customer_maria.pdf`
 
 ### Paso 4: Ingestionar los PDFs
 
@@ -89,7 +89,7 @@ Una vez que la app esté corriendo:
 
 1. **Filtros (sidebar):**
    - Selecciona los vendors que quieres incluir
-   - Filtra por tipo de fuente (ex-cliente, ex-empleado)
+   - Filter by source type (`ex-customer`, `ex-employee`)
    - Ajusta el número de chunks a recuperar
 
 2. **Haz preguntas:**
