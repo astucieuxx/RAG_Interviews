@@ -41,9 +41,207 @@ def normalize_source_type(source_type: str) -> str:
 # ── Page config ────────────────────────────────────────────────────
 st.set_page_config(
     page_title="RAG AI Agents Competitors Analysis",
-    page_icon="🔍",
+    page_icon="🔎",
     layout="wide",
 )
+
+
+def inject_global_styles():
+    st.markdown(
+        """
+<style>
+/* Zendesk-inspired dark palette */
+:root{
+  --zd-bg: #031A1D;         /* deep teal */
+  --zd-panel: #062A30;      /* slightly lighter teal */
+  --zd-border: rgba(255,255,255,0.18);
+  --zd-text: #F4F8F9;
+  --zd-subtle: #D7E4E7;
+  --zd-muted: #B7C8CC;
+  --zd-teal: #03363D;       /* Zendesk evergreen */
+  --zd-green: #78A300;      /* Zendesk green */
+  --zd-cyan: #2F9DB5;       /* accent */
+}
+
+html, body, [data-testid="stAppViewContainer"] {
+  background: var(--zd-bg) !important;
+  color: var(--zd-text);
+}
+* { color: var(--zd-text); }
+
+/* Streamlit top header/menu bar */
+header[data-testid="stHeader"] {
+  background: rgba(3,26,29,0.95) !important;
+  border-bottom: 1px solid var(--zd-border) !important;
+}
+div[data-testid="stToolbar"] {
+  background: transparent !important;
+}
+
+/* Layout + typography */
+.main .block-container { padding-top: 1.25rem; padding-bottom: 2rem; max-width: 1220px; }
+h1, h2, h3 { letter-spacing: -0.02em; }
+div[data-testid="stCaptionContainer"] p { color: var(--zd-subtle); }
+
+/* Header card */
+.ci-header {
+  border: 1px solid var(--zd-border);
+  background: linear-gradient(135deg, rgba(3,54,61,0.85), rgba(6,42,48,0.85));
+  border-radius: 16px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.ci-header-title { font-size: 1.35rem; font-weight: 700; margin: 0; }
+.ci-header-sub { margin: 6px 0 0 0; color: var(--zd-subtle); font-size: 0.95rem; }
+.ci-header-meta {
+  margin-top: 10px;
+  font-size: 0.86rem;
+  color: var(--zd-muted);
+}
+.ci-header-owner {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: var(--zd-muted);
+}
+
+/* “Badge” chips */
+.chip {
+  display: inline-flex; align-items: center;
+  border: 1px solid var(--zd-border);
+  background: rgba(255,255,255,0.03);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  color: var(--zd-subtle);
+  gap: 8px;
+}
+.dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+.dot-purple { background: var(--zd-green); }
+.dot-blue { background: var(--zd-cyan); }
+.dot-emerald { background: #22c55e; }
+
+/* Chat message spacing */
+div[data-testid="stChatMessage"] {
+  border-radius: 14px;
+  border: 1px solid var(--zd-border);
+  background: rgba(255,255,255,0.02);
+}
+div[data-testid="stChatMessage"] p { color: var(--zd-text); }
+
+/* Sidebar spacing */
+section[data-testid="stSidebar"] .block-container { padding-top: 1rem; }
+
+/* Sidebar background */
+section[data-testid="stSidebar"] {
+  background: rgba(6,42,48,0.82) !important;
+  border-right: 1px solid var(--zd-border);
+}
+
+/* Metric cards */
+div[data-testid="stMetric"]{
+  border: 1px solid var(--zd-border);
+  background: rgba(255,255,255,0.03);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+div[data-testid="stMetric"] label, div[data-testid="stMetric"] [data-testid="stMetricLabel"] {
+  color: var(--zd-subtle) !important;
+}
+div[data-testid="stMetric"] [data-testid="stMetricValue"] {
+  color: var(--zd-text) !important;
+}
+
+/* Dataframe container */
+div[data-testid="stDataFrame"]{
+  border: 1px solid var(--zd-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Inputs/selects/buttons contrast */
+div[data-baseweb="select"] > div,
+div[data-baseweb="input"] > div,
+div[data-baseweb="textarea"] > div {
+  background: #0A2F35 !important;
+  border-color: var(--zd-border) !important;
+}
+div[data-baseweb="select"] *, div[data-baseweb="input"] *, div[data-baseweb="textarea"] * {
+  color: var(--zd-text) !important;
+}
+
+/* Chat input container + field */
+div[data-testid="stChatInput"] {
+  background: #0A2F35 !important;
+  border: 1px solid var(--zd-border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.22);
+  overflow: hidden !important;
+}
+/* Streamlit bottom/floating chat bar wrappers (version-dependent selectors) */
+div[data-testid="stBottomBlockContainer"],
+div[data-testid="stChatFloatingInputContainer"],
+div[data-testid="stChatInputContainer"],
+.stChatFloatingInputContainer {
+  background: var(--zd-bg) !important;
+  border-top: 1px solid rgba(255,255,255,0.08) !important;
+}
+div[data-testid="stBottomBlockContainer"] > div,
+div[data-testid="stChatFloatingInputContainer"] > div,
+div[data-testid="stChatInputContainer"] > div,
+.stChatFloatingInputContainer > div {
+  background: var(--zd-bg) !important;
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+/* Remove white "card" wrappers used by some Streamlit builds */
+div[data-testid="stChatInput"] > div,
+div[data-testid="stChatInput"] > div > div {
+  background: transparent !important;
+}
+div[data-testid="stChatInput"] textarea {
+  color: var(--zd-text) !important;
+  background: transparent !important;
+  caret-color: var(--zd-text) !important;
+}
+div[data-testid="stChatInput"] textarea::placeholder {
+  color: var(--zd-muted) !important;
+}
+div[data-testid="stChatInput"] button {
+  background: transparent !important;
+  border: none !important;
+}
+div[data-testid="stChatInput"] svg {
+  fill: var(--zd-subtle) !important;
+}
+
+button[kind], .stButton > button {
+  background: #0A2F35 !important;
+  color: var(--zd-text) !important;
+  border: 1px solid var(--zd-border) !important;
+}
+button[kind]:hover, .stButton > button:hover {
+  background: #11424A !important;
+  border-color: rgba(255,255,255,0.28) !important;
+}
+
+/* Expanders and helper text */
+details, div[data-testid="stExpander"] {
+  border-color: var(--zd-border) !important;
+}
+small, .stMarkdown, .stCaption { color: var(--zd-subtle); }
+
+/* Context callout */
+.context-callout{
+  border: 1px solid var(--zd-border);
+  background: rgba(255,255,255,0.025);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 6px 0 14px 0;
+}
+</style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 @st.cache_resource
@@ -132,11 +330,15 @@ def get_database_interview_summary(database) -> tuple[int, list[dict]]:
     for vendor in VENDORS:
         rows.append({
             "company": vendor,
-            "ex-customer": summary[vendor]["ex-customer"],
-            "ex-employee": summary[vendor]["ex-employee"],
+            "customers": summary[vendor]["ex-customer"],
+            "former employees": summary[vendor]["ex-employee"],
             "total": summary[vendor]["ex-customer"] + summary[vendor]["ex-employee"],
         })
     return len(interviews), rows
+
+
+def get_database_chunk_count(database) -> int:
+    return int(len(database.get("chunks", [])))
 
 
 def format_count_response(query: str, total: int, breakdown: dict) -> str:
@@ -265,16 +467,50 @@ Question: {query}"""
 
 
 def main():
+    inject_global_styles()
     client, database = init_clients()
     db_total_interviews, db_summary_rows = get_database_interview_summary(database)
+    db_total_chunks = get_database_chunk_count(database)
 
     # ── Header ─────────────────────────────────────────────────────
-    st.title("RAG AI Agents Competitors Analysis")
-    st.caption("RAG-powered analysis of competitive intelligence interviews")
+    st.markdown(
+        """
+<div class="ci-header">
+  <div class="ci-header-title">RAG AI Agents Competitors Analysis</div>
+  <div class="ci-header-sub">
+    Competitive intelligence chat over ex-customer & ex-employee interviews. Answers are grounded in retrieved excerpts.
+  </div>
+  <div class="ci-header-meta">
+    Grounded in 40+ structured interviews across customers and former employees from Decagon, Sierra, Intercom, Forethought, and Zendesk.
+  </div>
+  <div class="ci-header-owner">
+    Market Intelligence initiative. Contacts: Benjamin Miranda and Rodrigo Gomez.
+  </div>
+</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    kpi1, kpi2, kpi3 = st.columns([1, 1, 2])
+    with kpi1:
+        st.metric("Interviews indexed", db_total_interviews)
+    with kpi2:
+        st.metric("Chunks indexed", db_total_chunks)
+    with kpi3:
+        st.markdown(
+            """
+<span class="chip"><span class="dot dot-purple"></span>RAG: vector search + citations</span>
+&nbsp;&nbsp;
+<span class="chip"><span class="dot dot-blue"></span>Filters: vendor + source type</span>
+&nbsp;&nbsp;
+<span class="chip"><span class="dot dot-emerald"></span>Language: matches your prompt</span>
+            """,
+            unsafe_allow_html=True,
+        )
 
     # ── Sidebar: Filters ───────────────────────────────────────────
     with st.sidebar:
-        st.header("Filters")
+        st.header("Controls")
 
         vendor_filter = st.multiselect(
             "Vendors",
@@ -291,23 +527,25 @@ def main():
         )
 
         st.divider()
-
-        top_k = st.slider(
-            "Chunks to retrieve",
-            min_value=3,
-            max_value=20,
-            value=TOP_K,
-            help="Number of relevant excerpts to include as context",
-        )
-
-        st.divider()
-        st.subheader("Database interviews")
-        st.caption(f"Total interviews indexed: **{db_total_interviews}**")
+        st.subheader("Database coverage")
+        st.caption(f"Indexed interviews: **{db_total_interviews}** · Chunks: **{db_total_chunks}**")
         st.dataframe(
             db_summary_rows,
             use_container_width=True,
             hide_index=True,
         )
+
+        st.divider()
+        with st.expander("Methodology & scope", expanded=False):
+            st.markdown(
+                """
+- **Evidence base:** 40+ structured interviews across enterprise customers and former employees.
+- **Vendors covered:** Decagon, Sierra, Intercom, Forethought, and Zendesk context interviews.
+- **Lens:** buyer journey from evaluation to implementation and optimization.
+- **Research intent:** directional, interview-backed market intelligence (not a definitive market report).
+- **Best use:** compare patterns, validate hypotheses, and identify follow-up questions.
+                """
+            )
 
         st.divider()
 
@@ -317,17 +555,29 @@ def main():
             st.rerun()
 
         st.divider()
-        st.caption("💡 **Example queries:**")
-        st.caption("• What are common complaints about Decagon's onboarding?")
-        st.caption("• Compare Sierra vs Intercom from the customer perspective")
-        st.caption("• What do ex-employees say about Forethought's AI accuracy?")
-        st.caption("• ¿Cuáles son los buying factors más mencionados?")
+        with st.expander("Examples", expanded=False):
+            st.caption("• What are common complaints about Decagon's onboarding?")
+            st.caption("• Compare Sierra vs Intercom from the customer perspective")
+            st.caption("• What do ex-employees say about Forethought's AI accuracy?")
+            st.caption("• ¿Cuáles son los buying factors más mencionados?")
 
     # ── Chat state ─────────────────────────────────────────────────
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
+
+    st.markdown(
+        """
+<div class="context-callout">
+<strong>How to interpret answers</strong><br/>
+Responses are generated from retrieved interview excerpts, not from the full corpus at once.
+Use vendor/source filters to narrow the lens, and ask follow-up questions to validate conclusions.
+If evidence is insufficient, the assistant should explicitly say so.
+</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     # Display chat history
     for msg in st.session_state.messages:
@@ -342,7 +592,7 @@ def main():
                         )
 
     # ── Chat input ─────────────────────────────────────────────────
-    if prompt := st.chat_input("Ask about the interview transcripts..."):
+    if prompt := st.chat_input("Ask about the interviews… (e.g. 'Compare Sierra vs Intercom')"):
         # Display user message
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -369,7 +619,7 @@ def main():
                         query_vector,
                         vendor_filter=vendor_filter if vendor_filter else None,
                         source_filter=source_filter if source_filter else None,
-                        top_k=top_k,
+                        top_k=TOP_K,
                     )
 
                     # Build context and get response
